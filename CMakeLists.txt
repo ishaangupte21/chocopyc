@@ -15,4 +15,14 @@ if (CMAKE_SYSTEM_NAME MATCHES "Darwin"
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/opt/homebrew/cellar/llvm/19.1.3/lib/c++")
 endif()
 
+add_subdirectory(src)
+
 add_executable(chocopyc main.cpp)
+
+# Set the include paths
+target_include_directories(chocopyc PUBLIC "${CMAKE_SOURCE_DIR}/include" "${CMAKE_BINARY_DIR}/include")
+target_include_directories(chocopyc_parse PUBLIC "${CMAKE_SOURCE_DIR}/include" "${CMAKE_BINARY_DIR}/include")
+target_include_directories(chocopyc_source PUBLIC "${CMAKE_SOURCE_DIR}/include" "${CMAKE_BINARY_DIR}/include")
+
+# Set the link paths
+target_link_libraries(chocopyc PUBLIC chocopyc_parse chocopyc_source)

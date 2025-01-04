@@ -1,0 +1,1 @@
+add_library(chocopyc_frontend ErrorReporter.cpp)

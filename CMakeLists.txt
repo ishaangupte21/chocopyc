@@ -23,6 +23,7 @@ add_executable(chocopyc main.cpp)
 target_include_directories(chocopyc PUBLIC "${CMAKE_SOURCE_DIR}/include" "${CMAKE_BINARY_DIR}/include")
 target_include_directories(chocopyc_parse PUBLIC "${CMAKE_SOURCE_DIR}/include" "${CMAKE_BINARY_DIR}/include")
 target_include_directories(chocopyc_source PUBLIC "${CMAKE_SOURCE_DIR}/include" "${CMAKE_BINARY_DIR}/include")
+target_include_directories(chocopyc_frontend PUBLIC "${CMAKE_SOURCE_DIR}/include" "${CMAKE_BINARY_DIR}/include")
 
 # Set the link paths
-target_link_libraries(chocopyc PUBLIC chocopyc_parse chocopyc_source)
+target_link_libraries(chocopyc PUBLIC chocopyc_parse chocopyc_source chocopyc_frontend)

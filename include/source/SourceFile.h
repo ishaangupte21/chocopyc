@@ -66,7 +66,14 @@ class SourceFile {
         return get_start_ptr() + src_file_size - 1;
     }
 
+    // This method will take in an offset within this source file and return the
+    // line and column numbers of the given position.
     [[nodiscard]] auto get_location(size_t offset) -> std::pair<int, int>;
+
+    // This method will return a reference to the source file's path.
+    [[nodiscard]] auto get_src_file_path() -> std::string & {
+        return src_file_path;
+    }
 };
 } // namespace chocopyc::Source
 

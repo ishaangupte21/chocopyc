@@ -17,7 +17,7 @@ namespace chocopyc::Parse {
 // for tokens.
 class Lexer {
     // This field represents the instance of the source file information object.
-    std::shared_ptr<Source::SourceFile> src_file;
+    const Source::SourceFile &src_file;
 
     // This field represents the current pointer within the buffer.
     char *ptr;
@@ -36,14 +36,14 @@ class Lexer {
     auto report_lexer_error(const char *msg, char *tok_start, int size)
         -> void {
         Frontend::ErrorReporter::report_error(
-            msg, tok_start - src_file->get_start_ptr(), size, src_file);
+            msg, tok_start - src_file.get_start_ptr(), size, src_file);
     }
 
     // This method sets the information for the next token to be used by the
     // parser.
     auto make_token(Token &tok, TokenKind kind, char *tok_start, int size)
         -> void {
-        tok.set_info(kind, tok_start - src_file->get_start_ptr(), size);
+        tok.set_info(kind, tok_start - src_file.get_start_ptr(), size);
     }
 
     // This method checks whether the previous line in the input was empty.
@@ -69,8 +69,8 @@ class Lexer {
     auto lex_identifier_or_keyword(Token &tok, char *tok_start) -> void;
 
   public:
-    Lexer(std::shared_ptr<Source::SourceFile> src_file)
-        : src_file{src_file}, ptr{src_file->get_start_ptr()} {
+    Lexer(const Source::SourceFile &src_file)
+        : src_file{src_file}, ptr{src_file.get_start_ptr()} {
         // We want to push a default value of 0 onto the whitespacestack.
         whitespace_stack.push(0);
     }

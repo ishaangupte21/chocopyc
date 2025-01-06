@@ -1,1 +1,1 @@
-add_library(chocopyc_parse Lexer.cpp)
+add_library(chocopyc_parse Lexer.cpp Parser.cpp ASTNodePrint.cpp)

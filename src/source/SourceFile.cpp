@@ -15,7 +15,7 @@ namespace chocopyc::Source {
 // We use the C++ 23 'std::expected' class to provide the ability to handle any
 // possible errors.
 auto SourceFile::from_src_file(const char *src_file_path)
-    -> std::expected<std::shared_ptr<SourceFile>, std::string> {
+    -> std::expected<SourceFile, const char *> {
     // First, we need to attempt to open the file.
     errno = 0;
     FILE *src_file = fopen(src_file_path, "r");
@@ -40,9 +40,8 @@ auto SourceFile::from_src_file(const char *src_file_path)
     auto newline_chars = locate_newline_chars(buffer, src_file_size);
 
     // Now, we can return an instance of this object.
-    return std::make_shared<SourceFile>(std::string{src_file_path},
-                                        std::move(buffer), src_file_size,
-                                        std::move(newline_chars));
+    return SourceFile{std::string{src_file_path}, std::move(buffer),
+                      src_file_size, std::move(newline_chars)};
 }
 
 // The purpose of this method is to scan through the source file and locate the
@@ -86,7 +85,7 @@ auto SourceFile::locate_newline_chars(std::unique_ptr<char[]> &buffer,
 // This method takes an offset to a position within in a source file and returns
 // the line and column information associated with that position. It is mainly
 // used for error reporting.
-auto SourceFile::get_location(size_t offset) -> std::pair<int, int> {
+auto SourceFile::get_location(size_t offset) const -> std::pair<int, int> {
     // Here, we will first check if there is only one line. If there is only one
     // line, we know that the column lies within this line. Since columns are
     // 1-indexed, we need to add 1 to the offset.
@@ -99,7 +98,7 @@ auto SourceFile::get_location(size_t offset) -> std::pair<int, int> {
     // to find the first new-line character with an offset greater than the
     // offset we are looking for. The new-line character before that will be our
     // desired line.
-    auto cmp = [](size_t offset, std::pair<size_t, int> &newline_char) {
+    auto cmp = [](size_t offset, const std::pair<size_t, int> &newline_char) {
         return offset <= newline_char.first;
     };
 

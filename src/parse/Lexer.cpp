@@ -93,7 +93,7 @@ lexer_begin:
     switch (*ptr) {
     case '\0': {
         // Here, we must check for the end of the file.
-        if (ptr == src_file->get_end_ptr()) {
+        if (ptr == src_file.get_end_ptr()) {
             make_token(tok, TokenKind::End, tok_start, 1);
             return;
         }
@@ -448,7 +448,7 @@ auto Lexer::lex_string_literal(Token &tok, char *tok_start) -> void {
             // Here, we might have the end of the file. If we do hit the end of
             // the file, that is an error. However, if we are not at the end of
             // the file, a null character is not allowed anyways.
-            if (ptr == src_file->get_end_ptr()) {
+            if (ptr == src_file.get_end_ptr()) {
                 report_lexer_error("expected '\"' to terminate string literal.",
                                    ptr, 1);
 

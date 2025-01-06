@@ -20,7 +20,7 @@ class ErrorReporter {
   public:
     // This method reports errors to the user.
     static auto report_error(const char *msg, size_t offset, int size,
-                             std::shared_ptr<Source::SourceFile>) -> void;
+                             const Source::SourceFile &src_file) -> void;
 
     // This method returns whether an error has been detected.
     [[nodiscard]] static auto failed() -> bool { return has_seen_error; }

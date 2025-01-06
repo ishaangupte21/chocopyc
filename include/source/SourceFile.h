@@ -49,31 +49,29 @@ class SourceFile {
           src_file_size{src_file_size},
           newline_chars{std::move(newline_chars)} {}
 
-    // Since instances of this object will never be owned by a single phase of
-    // the compilation process, it is important to ensure that it can only be
-    // created as a reference counted pointer.
+    // This method will create a SourceFile instance for the given file path.
     [[nodiscard]] static auto from_src_file(const char *src_file_path)
-        -> std::expected<std::shared_ptr<SourceFile>, std::string>;
+        -> std::expected<SourceFile, const char *>;
 
     // This method returns the pointer to the start of the source file buffer.
-    [[nodiscard]] auto get_start_ptr() -> char * {
+    [[nodiscard]] auto get_start_ptr() const -> char * {
         return src_file_buffer.get();
     }
 
     // This method returns the pointer to the end of the source file buffer. It
     // will contain a sentinel character.
-    [[nodiscard]] auto get_end_ptr() -> char * {
+    [[nodiscard]] auto get_end_ptr() const -> char * {
         return get_start_ptr() + src_file_size - 1;
     }
 
     // This method will take in an offset within this source file and return the
     // line and column numbers of the given position.
-    [[nodiscard]] auto get_location(size_t offset) -> std::pair<int, int>;
+    [[nodiscard]] auto get_location(size_t offset) const -> std::pair<int, int>;
 
     // This method will return a reference to the source file's path.
-    [[nodiscard]] auto get_src_file_path() -> std::string & {
+    [[nodiscard]] auto get_src_file_path() const -> const std::string & {
         return src_file_path;
-    }
+    } 
 };
 } // namespace chocopyc::Source
 

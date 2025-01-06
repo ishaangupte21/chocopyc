@@ -1,4 +1,4 @@
-#include "parse/Lexer.h"
+#include "parse/Parser.h"
 #include "source/SourceFile.h"
 
 #include <print>
@@ -13,22 +13,21 @@ int main(int argc, char *argv[]) {
     auto src_file_expected =
         chocopyc::Source::SourceFile::from_src_file(argv[1]);
 
-    if (!src_file_expected.value()) {
+    if (!src_file_expected.has_value()) {
         std::println(stderr, "error: {}", src_file_expected.error());
         return 1;
     }
 
     // Since we checked for errors, we can now take out its value.
-    auto src_file = src_file_expected.value();
+    auto src_file = std::move(src_file_expected.value());
 
     chocopyc::Parse::Lexer lexer{src_file};
-    chocopyc::Parse::Token tok;
+    chocopyc::Parse::Parser parser{lexer, src_file};
 
-    lexer.lex_next_tok(tok);
-    while (tok.kind != chocopyc::Parse::TokenKind::End) {
-        std::println("token: {}",
-                     chocopyc::Parse::token_names[static_cast<int>(tok.kind)]);
-        
-        lexer.lex_next_tok(tok);
+    auto tree_result = parser.parse_chocopy_compilation_unit();
+    if (tree_result.has_value()) {
+        FILE *out_file = fopen("parse_test.txt", "w");
+        tree_result.value()->pretty_print(out_file, 0);
+        fclose(out_file);
     }
 }

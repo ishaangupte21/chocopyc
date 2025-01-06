@@ -182,7 +182,7 @@ auto ASTIndexingExprNode::pretty_print(FILE *out, int level) -> void {
 }
 
 // Pretty printing for function call expressions.
-auto ASTFunctionCallExpr::pretty_print(FILE *out, int level) -> void {
+auto ASTFunctionCallExprNode::pretty_print(FILE *out, int level) -> void {
     // First, we must set the indentation level for the name.
     for (int i = 0; i < level * 4; ++i) {
         std::print(out, " ");
@@ -211,6 +211,65 @@ auto ASTFunctionCallExpr::pretty_print(FILE *out, int level) -> void {
         std::print(out, " ");
     }
     std::println(out, "]");
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for unary operator expression.
+auto ASTUnaryOpExprNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTUnaryOpExprNode");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "operator: {}", operator_names[static_cast<int>(op)]);
+
+    // Print the expression
+    expr->pretty_print(out, level + 1);
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for binary operator expression.
+auto ASTBinaryOpExprNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTBinaryOpExprNode");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "operator: {}", operator_names[static_cast<int>(op)]);
+
+    // Print the LHS
+    lhs->pretty_print(out, level + 1);
+
+    // Print the RHS
+    rhs->pretty_print(out, level + 1);
 
     // First, we must print the closing curly brace.
     for (int i = 0; i < level * 4; ++i) {

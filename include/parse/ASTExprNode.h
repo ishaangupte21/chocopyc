@@ -102,7 +102,7 @@ struct ASTIndexingExprNode : public ASTNode {
     auto pretty_print(FILE *out, int level) -> void override;
 };
 
-struct ASTFunctionCallExpr : public ASTNode {
+struct ASTFunctionCallExprNode : public ASTNode {
     // This field represents the expression that holds the method that is being
     // called.
     NodePtr callee;
@@ -110,10 +110,79 @@ struct ASTFunctionCallExpr : public ASTNode {
     // This field represents the list of arguments given to the function.
     std::vector<NodePtr> args;
 
-    ASTFunctionCallExpr(NodePtr callee, std::vector<NodePtr> args,
-                        size_t offset, int size)
+    ASTFunctionCallExprNode(NodePtr callee, std::vector<NodePtr> args,
+                            size_t offset, int size)
         : ASTNode{offset, size}, callee{std::move(callee)},
           args{std::move(args)} {}
+
+    auto pretty_print(FILE *out, int level) -> void override;
+};
+
+struct ASTUnaryOpExprNode : public ASTNode {
+// We need to use the macro trick here to get printable operator names.
+#define UNARY_OPERATORS(F)                                                     \
+    F(UnaryNot)                                                                \
+    F(UnaryMinus)
+
+#define F(x) x,
+    enum class Operator { UNARY_OPERATORS(F) };
+#undef F
+
+#define F(x) #x,
+    static inline const char *operator_names[] = {UNARY_OPERATORS(F)};
+#undef F
+#undef UNARY_OPERATORS
+
+    // This field defines the operator that is appled on the expression.
+    Operator op;
+
+    // This field defines the expression that the operator is applied on.
+    NodePtr expr;
+
+    ASTUnaryOpExprNode(Operator op, NodePtr expr, size_t offset, int size)
+        : ASTNode{offset, size}, op{op}, expr{std::move(expr)} {}
+
+    auto pretty_print(FILE *out, int level) -> void override;
+};
+
+struct ASTBinaryOpExprNode : public ASTNode {
+// We need to use the macro trick here to get printable operator names.
+#define BINARY_OPERATORS(F)                                                    \
+    F(BinaryPlus)                                                              \
+    F(BinaryMinus)                                                             \
+    F(BinaryAsterisk)                                                          \
+    F(BinarySlash)                                                             \
+    F(BinarySlashSlash)                                                        \
+    F(BinaryPercent)                                                           \
+    F(BinaryEqualsEquals)                                                      \
+    F(BinaryExclamationEquals)                                                 \
+    F(BinaryLessEquals)                                                        \
+    F(BinaryLess)                                                              \
+    F(BinaryGreaterEquals)                                                     \
+    F(BinaryGreater)                                                           \
+    F(BinaryIs)                                                                \
+    F(BinaryLogicalAnd)                                                        \
+    F(BinaryLogicalOr)
+
+#define F(x) x,
+    enum class Operator { BINARY_OPERATORS(F) };
+#undef F
+
+#define F(x) #x,
+    static inline const char *operator_names[] = {BINARY_OPERATORS(F)};
+#undef F
+#undef BINARY_OPERATORS
+
+    // This field holds the operator for the expression.
+    Operator op;
+
+    // These fields hold the LHS and RHS of the expression.
+    NodePtr lhs, rhs;
+
+    ASTBinaryOpExprNode(Operator op, NodePtr lhs, NodePtr rhs, size_t offset,
+                        int size)
+        : ASTNode{offset, size}, op{op}, lhs{std::move(lhs)},
+          rhs{std::move(rhs)} {}
 
     auto pretty_print(FILE *out, int level) -> void override;
 };

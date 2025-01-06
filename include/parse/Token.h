@@ -105,11 +105,14 @@ struct Token {
     // This method provides the end offset of a token. It is used for computing
     // sizes of AST nodes.
     [[nodiscard]] auto end() -> size_t { return offset + size; }
-};
 
-// This is an array of the string representation of token names. This allows us
-// to use the names when printing.
-extern const char *token_names[];
+// This is an array of the string representation of token names. This allows
+// us to use the names when printing.
+#define F(x) #x,
+    static inline const char *token_names[] = {TOKEN_LIST(F)};
+#undef F
+};
 } // namespace chocopyc::Parse
 
+#undef TOKEN_LIST
 #endif

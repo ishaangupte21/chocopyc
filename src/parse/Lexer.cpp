@@ -6,12 +6,6 @@
 #include "parse/Token.h"
 
 namespace chocopyc::Parse {
-// This is an array of the string representation of token names. This allows us
-// to use the names when printing.
-#define F(x) #x,
-const char *token_names[] = {TOKEN_LIST(F)};
-#undef F
-
 // This hash table serves as a lookup table for all reserved keywords. In
 // chocopy, all of Python's keywords are reserved, although they may not
 // actually be used.

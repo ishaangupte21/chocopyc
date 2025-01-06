@@ -7,6 +7,47 @@
 #include "parse/Token.h"
 
 namespace chocopyc::Parse {
+// This method performs enum conversions between token types and AST binary
+// operator types.
+static auto get_chocopy_binary_operator(TokenKind kind)
+    -> ASTBinaryOpExprNode::Operator {
+    switch (kind) {
+    case TokenKind::Plus:
+        return ASTBinaryOpExprNode::Operator::BinaryPlus;
+    case TokenKind::Minus:
+        return ASTBinaryOpExprNode::Operator::BinaryMinus;
+    case TokenKind::Asterisk:
+        return ASTBinaryOpExprNode::Operator::BinaryAsterisk;
+    case TokenKind::Slash:
+        return ASTBinaryOpExprNode::Operator::BinarySlash;
+    case TokenKind::SlashSlash:
+        return ASTBinaryOpExprNode::Operator::BinarySlashSlash;
+    case TokenKind::Percent:
+        return ASTBinaryOpExprNode::Operator::BinaryPercent;
+    case TokenKind::EqualsEquals:
+        return ASTBinaryOpExprNode::Operator::BinaryEqualsEquals;
+    case TokenKind::ExclamationEquals:
+        return ASTBinaryOpExprNode::Operator::BinaryExclamationEquals;
+    case TokenKind::LessEquals:
+        return ASTBinaryOpExprNode::Operator::BinaryLessEquals;
+    case TokenKind::Less:
+        return ASTBinaryOpExprNode::Operator::BinaryLess;
+    case TokenKind::Greater:
+        return ASTBinaryOpExprNode::Operator::BinaryGreater;
+    case TokenKind::GreaterEquals:
+        return ASTBinaryOpExprNode::Operator::BinaryGreaterEquals;
+    case TokenKind::KeywordIs:
+        return ASTBinaryOpExprNode::Operator::BinaryIs;
+    case TokenKind::KeywordAnd:
+        return ASTBinaryOpExprNode::Operator::BinaryLogicalAnd;
+    case TokenKind::KeywordOr:
+        return ASTBinaryOpExprNode::Operator::BinaryLogicalOr;
+    default:
+        // This should not be reachable, but we will return a dummy value.
+        return ASTBinaryOpExprNode::Operator::BinaryPercent;
+    }
+};
+
 // This method parses the most basic form of expressions within Chocopy. Here,
 // we will handle literals (integer, float, boolean, string), identifiers, and
 // lists. We will also check for postfix components such as attribute
@@ -84,6 +125,40 @@ auto Parser::parse_chocopy_primary_expr() -> Parser::ReturnType {
             return list_expr_expected;
 
         primary_expr = std::move(list_expr_expected.value());
+        break;
+    }
+
+    // The last primary expression we will support is the unary negation
+    // expression.
+    case TokenKind::Minus: {
+        // First, we must store the offset of the minus sign and then consume
+        // it.
+        size_t minus_op_offset = tok.offset;
+        advance();
+
+        // Now, we need an expression. THe Chocopy standard requires expressions
+        // following a unary '-' operator to be a primary expression or binary
+        // operator expression.
+        size_t expr_expected_start = tok.offset;
+        int expr_expected_size = tok.size;
+
+        auto expr_expected = parse_chocopy_binary_op_expr();
+        if (!expr_expected.has_value()) {
+            if (!expr_expected.error())
+                report_parser_error(
+                    "expected expression after the unary operator '-'.",
+                    expr_expected_start, expr_expected_size);
+
+            return std::unexpected{true};
+        }
+
+        // If the expression was found, we can create the node.
+        int size = expr_expected.value()->end() - minus_op_offset;
+
+        primary_expr = std::make_unique<ASTUnaryOpExprNode>(
+            ASTUnaryOpExprNode::Operator::UnaryMinus,
+            std::move(expr_expected.value()), minus_op_offset, size);
+
         break;
     }
 
@@ -180,7 +255,7 @@ auto Parser::parse_chocopy_primary_expr() -> Parser::ReturnType {
                 size_t start = primary_expr->offset;
                 int size = tok.end() - start;
 
-                return std::make_unique<ASTFunctionCallExpr>(
+                return std::make_unique<ASTFunctionCallExprNode>(
                     std::move(primary_expr), std::move(args), start, size);
             }
 
@@ -233,7 +308,7 @@ auto Parser::parse_chocopy_primary_expr() -> Parser::ReturnType {
             }
 
             int size = tok.end() - primary_expr->offset;
-            primary_expr = std::make_unique<ASTFunctionCallExpr>(
+            primary_expr = std::make_unique<ASTFunctionCallExprNode>(
                 std::move(primary_expr), std::move(args), primary_expr->offset,
                 size);
 
@@ -333,6 +408,9 @@ auto Parser::parse_chocopy_list_literal() -> Parser::ReturnType {
                                              lsquare_offset, size);
 }
 
+// This method parses Chocopy expressions that are enclosed in parentheses. For
+// the purposes of error reporting, we have a separate AST Node for them.
+// Otherwise, they will just be expanded into the parent tree.
 auto Parser::parse_chocopy_paren_expr() -> ReturnType {
     // First, we will mark the starting position and consume the left
     // parenthesis.
@@ -366,5 +444,119 @@ auto Parser::parse_chocopy_paren_expr() -> ReturnType {
 
     return std::make_unique<ASTParenExprNode>(std::move(expr_expected.value()),
                                               lparen_offset, size);
+}
+
+// This method takes a reference to a token and returns its precedence if it is
+// a binary operator. If it is not a valid binary operator, this method will
+// return -1.
+auto Parser::get_chocopy_binary_op_precedence(const Token &tok) -> int {
+    switch (tok.kind) {
+    // First, we will do all relational operators.
+    case TokenKind::EqualsEquals:
+    case TokenKind::ExclamationEquals:
+    case TokenKind::Less:
+    case TokenKind::Greater:
+    case TokenKind::LessEquals:
+    case TokenKind::GreaterEquals:
+    case TokenKind::KeywordIs:
+        return 1;
+
+    // Next we will do addition operators.
+    case TokenKind::Plus:
+    case TokenKind::Minus:
+        return 2;
+
+    // Next, we have multiplication operators.
+    case TokenKind::Asterisk:
+    case TokenKind::Slash:
+    case TokenKind::SlashSlash:
+    case TokenKind::Percent:
+        return 3;
+
+    // For everything else, we will return -1 as it is not a valid binary
+    // operator.
+    default:
+        return -1;
+    }
+}
+
+// This method will parse binary expressions. These are equivalent to chocopy's
+// 'cexpr' construct.
+auto Parser::parse_chocopy_binary_op_expr() -> ReturnType {
+    // First, we must have a primary expression as the LHS of the expression.
+    // This is one of the few places where we won't report errors. We will just
+    // pass the error up to the caller.
+    auto lhs_expected = parse_chocopy_primary_expr();
+    if (!lhs_expected.has_value())
+        return lhs_expected;
+
+    // If we do have an LHS, we can proceed to parse the RHS.
+    return parse_chocopy_binary_op_expr_rhs(std::move(lhs_expected.value()));
+}
+
+// Here we will use operator precedence parsing to optimize the parsing of the
+// RHS of expressions. The basic idea here is that all operators on the same
+// level should be parsed continuously. If you reach an operator with a higher
+// level, you make another recursive call to enforce the precedence. If you
+// reach one with a lower level, you return out of the call.
+auto Parser::parse_chocopy_binary_op_expr_rhs(NodePtr lhs, int precedence)
+    -> ReturnType {
+    while (true) {
+        // First, we need to check if we have a binary operator that has a
+        // precedence at least as much as the current precedence. If we don't we
+        // will exit as that operator needs to be parsed at a lower level.
+        int tok_precedence = get_chocopy_binary_op_precedence(tok);
+        if (tok_precedence < precedence)
+            return lhs;
+
+        // Now that we know this is a valid binary operator, we can store it and
+        // consume the token.
+        auto binary_operator = tok.kind;
+        advance();
+
+        // After here, we must have an expression representing the RHS of the
+        // binary expression.
+        size_t rhs_expected_start = tok.offset;
+        int rhs_expected_size = tok.size;
+
+        auto rhs_expected = parse_chocopy_primary_expr();
+        if (!rhs_expected.has_value()) {
+            if (!rhs_expected.error())
+                report_parser_error("expected expression on the right hand "
+                                    "side of a binary operator.",
+                                    rhs_expected_start, rhs_expected_size);
+
+            return std::unexpected{true};
+        }
+
+        // Now that we have the RHS, we need to keep parsing while we have an
+        // operator that has a higher precedence.
+        int next_tok_precedence = get_chocopy_binary_op_precedence(tok);
+        if (tok_precedence < next_tok_precedence) {
+            size_t rhs_expected_start = tok.offset;
+            int rhs_expected_size = tok.size;
+
+            rhs_expected = parse_chocopy_binary_op_expr_rhs(
+                std::move(rhs_expected.value()), tok_precedence + 1);
+
+            if (!rhs_expected.has_value()) {
+                if (!rhs_expected.error())
+                    report_parser_error("expected expression on the right hand "
+                                        "side of a binary operator.",
+                                        rhs_expected_start, rhs_expected_size);
+
+                return std::unexpected{true};
+            }
+        }
+
+        // Once parsing is complete, we can combine the LHS and RHS.
+        auto converted_op = get_chocopy_binary_operator(binary_operator);
+        size_t start = lhs->offset;
+        int size = rhs_expected.value()->end() - start;
+
+        lhs = std::make_unique<ASTBinaryOpExprNode>(
+            converted_op, std::move(lhs), std::move(rhs_expected.value()),
+            start, size);
+    }
 }
 } // namespace chocopyc::Parse

@@ -559,4 +559,134 @@ auto Parser::parse_chocopy_binary_op_expr_rhs(NodePtr lhs, int precedence)
             start, size);
     }
 }
+
+auto Parser::parse_chocopy_unary_not_expr() -> ReturnType {
+    // Here, we first need to check for the unary not operator.
+    // If one is not present, we will pass the parsing on to binary expressions.
+    if (!expect(TokenKind::KeywordNot))
+        return parse_chocopy_binary_op_expr();
+
+    // Otherwise, if the 'not' keyword is found, we will treat it as a prefix
+    // operator.
+    size_t not_op_start = tok.offset;
+    advance();
+
+    // Now, we need an expression.
+    size_t expr_expected_start = tok.offset;
+    int expr_expected_size = tok.size;
+
+    auto expr_expected = parse_chocopy_binary_op_expr();
+    if (!expr_expected.has_value()) {
+        if (!expr_expected.error())
+            report_parser_error(
+                "expected expression after unary operator 'not'.",
+                expr_expected_start, expr_expected_size);
+
+        return std::unexpected{true};
+    }
+
+    // Now, we can create the node.
+    int size = expr_expected.value()->end() - not_op_start;
+
+    return std::make_unique<ASTUnaryOpExprNode>(
+        ASTUnaryOpExprNode::Operator::UnaryNot,
+        std::move(expr_expected.value()), expr_expected_start,
+        expr_expected_size);
+}
+
+// This method parses Chocopy logical 'and' expressions. Although they are
+// parsed separately due to precedence, they are ultimately still binary
+// expressions. Therefore, we need to deal with the left recursion that arises
+// here.
+//
+// The actual grammar for this part would be:
+// logical_boolean_expr := logical_boolean_expr 'and' logical_boolean_expr
+//
+// However, to eliminate the left recursion. we will transform it into:
+// logical_boolean_expr := unary_not_expr [ 'and' unary_not_expr]*
+auto Parser::parse_chocopy_logical_and_expr() -> ReturnType {
+    // First we need to get a unary not expression. If it isn't present, we will
+    // just propagate the error to the caller.
+    auto lhs = parse_chocopy_unary_not_expr();
+    if (!lhs.has_value())
+        return lhs;
+
+    // Now, while we have a viable operator, we must keep parsing.
+    while (expect(TokenKind::KeywordAnd)) {
+        advance();
+
+        // Now, we must have an RHS for our expression.
+        size_t rhs_expected_start = tok.offset;
+        int rhs_expected_size = tok.size;
+
+        auto rhs_expected = parse_chocopy_unary_not_expr();
+        if (!rhs_expected.has_value()) {
+            if (!rhs_expected.error())
+                report_parser_error("expected expression on the right hand "
+                                    "side of the operator 'and'.",
+                                    rhs_expected_start, rhs_expected_size);
+
+            return std::unexpected{true};
+        }
+
+        // Now, we can create our node.
+        size_t start = lhs.value()->offset;
+        int size = rhs_expected.value()->end() - start;
+
+        lhs = std::make_unique<ASTBinaryOpExprNode>(
+            ASTBinaryOpExprNode::Operator::BinaryLogicalAnd,
+            std::move(lhs.value()), std::move(rhs_expected.value()), start,
+            size);
+    }
+
+    return lhs;
+}
+
+// This method parses Chocopy logical 'or' expressions. Although they are
+// parsed separately due to precedence, they are ultimately still binary
+// expressions. Therefore, we need to deal with the left recursion that arises
+// here.
+//
+// The actual grammar for this part would be:
+// logical_boolean_expr := logical_boolean_expr 'or' logical_boolean_expr
+//
+// However, to eliminate the left recursion. we will transform it into:
+// logical_boolean_expr := logical_and_expr [ 'or' logical_and_expr]*
+auto Parser::parse_chocopy_logical_or_expr() -> ReturnType {
+    // First we need to get a logical and expression. If it isn't present, we
+    // will just propagate the error to the caller.
+    auto lhs = parse_chocopy_logical_and_expr();
+    if (!lhs.has_value())
+        return lhs;
+
+    // Now, while we have a viable operator, we must keep parsing.
+    while (expect(TokenKind::KeywordOr)) {
+        advance();
+
+        // Now, we must have an RHS for our expression.
+        size_t rhs_expected_start = tok.offset;
+        int rhs_expected_size = tok.size;
+
+        auto rhs_expected = parse_chocopy_logical_and_expr();
+        if (!rhs_expected.has_value()) {
+            if (!rhs_expected.error())
+                report_parser_error("expected expression on the right hand "
+                                    "side of the operator 'or'.",
+                                    rhs_expected_start, rhs_expected_size);
+
+            return std::unexpected{true};
+        }
+
+        // Now, we can create our node.
+        size_t start = lhs.value()->offset;
+        int size = rhs_expected.value()->end() - start;
+
+        lhs = std::make_unique<ASTBinaryOpExprNode>(
+            ASTBinaryOpExprNode::Operator::BinaryLogicalOr,
+            std::move(lhs.value()), std::move(rhs_expected.value()), start,
+            size);
+    }
+
+    return lhs;
+}
 } // namespace chocopyc::Parse

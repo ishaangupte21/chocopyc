@@ -67,7 +67,7 @@ class Parser {
 
     // This method serves as an overload for parsing the RHS of binary operator
     // expressions. This is used when beginning to parse the RHS and it takes
-    // case of the starting precedence for us.
+    // care of the starting precedence for us.
     [[nodiscard]] auto parse_chocopy_binary_op_expr_rhs(NodePtr lhs)
         -> ReturnType {
         return parse_chocopy_binary_op_expr_rhs(std::move(lhs), 0);
@@ -78,9 +78,19 @@ class Parser {
     [[nodiscard]] static auto get_chocopy_binary_op_precedence(const Token &tok)
         -> int;
 
+    // This method parses Chocopy expressions beginning with the unary 'not'
+    // operator.
+    [[nodiscard]] auto parse_chocopy_unary_not_expr() -> ReturnType;
+
+    // This method will parse logical and expressions in Chocopy.
+    [[nodiscard]] auto parse_chocopy_logical_and_expr() -> ReturnType;
+
+    // This method will parse logical or expressions in Chocopy.
+    [[nodiscard]] auto parse_chocopy_logical_or_expr() -> ReturnType;
+
     // This method parses Chocopy expressions.
     [[nodiscard]] auto parse_chocopy_expr() -> ReturnType {
-        return parse_chocopy_binary_op_expr();
+        return parse_chocopy_logical_or_expr();
     };
 
   public:

@@ -277,4 +277,34 @@ auto ASTBinaryOpExprNode::pretty_print(FILE *out, int level) -> void {
     }
     std::println(out, "}}");
 }
+
+// Pretty printing for ternary operator expression.
+auto ASTTernaryExprNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTTernaryExprNode");
+
+    // Print the condition
+    condition->pretty_print(out, level + 1);
+
+    // Print the 'then' expr
+    then_expr->pretty_print(out, level + 1);
+
+    // Print the 'else' expr
+    else_expr->pretty_print(out, level + 1);
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
 } // namespace chocopyc::Parse

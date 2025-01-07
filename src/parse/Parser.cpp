@@ -689,4 +689,69 @@ auto Parser::parse_chocopy_logical_or_expr() -> ReturnType {
 
     return lhs;
 }
+
+auto Parser::parse_chocopy_ternary_expr() -> ReturnType {
+    // First, we need to parse the 'then' expression.
+    // We do not need to report errors here as it is possible that this was
+    // never part of a ternary expression.
+    auto then_expr_expected = parse_chocopy_logical_or_expr();
+
+    // Since we may not actually have a ternary expression, if the following
+    // token is not 'if', we will also just return the result from the parsed
+    // expression.
+    if (!then_expr_expected.has_value() || !expect(TokenKind::KeywordIf))
+        return then_expr_expected;
+
+    // Now, we can consume the if keyword and check for the condition
+    // expression.
+    advance();
+
+    size_t condition_expected_start = tok.offset;
+    int condition_expected_size = tok.size;
+
+    auto condition_expected = parse_chocopy_expr();
+    if (!condition_expected.has_value()) {
+        if (!condition_expected.error())
+            report_parser_error(
+                "expected expression after 'if' in ternary expression.",
+                condition_expected_start, condition_expected_size);
+
+        return std::unexpected{true};
+    }
+
+    // Now, we must have an 'else' token.
+    if (!expect(TokenKind::KeywordElse)) {
+        report_parser_error("expected 'else' after condition expression within "
+                            "ternary expression.",
+                            tok.offset, tok.size);
+
+        return std::unexpected{true};
+    }
+
+    // Consume the 'else' component.
+    advance();
+
+    // Now, we need an else expression.
+    size_t else_expr_expected_start = tok.offset;
+    int else_expr_expected_size = tok.size;
+
+    auto else_expr_expected = parse_chocopy_expr();
+    if (!else_expr_expected.has_value()) {
+        if (!else_expr_expected.error())
+            report_parser_error(
+                "expected expression after 'else' in ternary expression.",
+                else_expr_expected_start, else_expr_expected_size);
+
+        return std::unexpected{true};
+    }
+
+    // Now, we can construct the node.
+    size_t start = then_expr_expected.value()->offset;
+    int size = else_expr_expected.value()->end() - start;
+
+    return std::make_unique<ASTTernaryExprNode>(
+        std::move(condition_expected.value()),
+        std::move(then_expr_expected.value()),
+        std::move(else_expr_expected.value()), start, size);
+}
 } // namespace chocopyc::Parse

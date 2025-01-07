@@ -187,6 +187,21 @@ struct ASTBinaryOpExprNode : public ASTNode {
     auto pretty_print(FILE *out, int level) -> void override;
 };
 
+struct ASTTernaryExprNode : public ASTNode {
+    // This field represents the condition for the ternary expression.
+    NodePtr condition;
+
+    // These fields represent the 'then' expression and the 'else' expression.
+    NodePtr then_expr, else_expr;
+
+    ASTTernaryExprNode(NodePtr condition, NodePtr then_expr, NodePtr else_expr,
+                       size_t offset, int size)
+        : ASTNode{offset, size}, condition{std::move(condition)},
+          then_expr{std::move(then_expr)}, else_expr{std::move(else_expr)} {}
+
+    auto pretty_print(FILE *out, int level) -> void override;
+};
+
 } // namespace chocopyc::Parse
 
 #endif

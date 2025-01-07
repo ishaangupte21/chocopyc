@@ -88,9 +88,12 @@ class Parser {
     // This method will parse logical or expressions in Chocopy.
     [[nodiscard]] auto parse_chocopy_logical_or_expr() -> ReturnType;
 
+    // This method will parse ternary expressions in Chocopy.
+    [[nodiscard]] auto parse_chocopy_ternary_expr() -> ReturnType;
+
     // This method parses Chocopy expressions.
     [[nodiscard]] auto parse_chocopy_expr() -> ReturnType {
-        return parse_chocopy_logical_or_expr();
+        return parse_chocopy_ternary_expr();
     };
 
   public:

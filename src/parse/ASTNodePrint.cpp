@@ -3,6 +3,7 @@
 */
 
 #include "parse/ASTExprNode.h"
+#include "parse/ASTStmtNode.h"
 
 #include <print>
 
@@ -299,6 +300,49 @@ auto ASTTernaryExprNode::pretty_print(FILE *out, int level) -> void {
 
     // Print the 'else' expr
     else_expr->pretty_print(out, level + 1);
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for pass statement.
+auto ASTPassStmtNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTPassStmtNode");
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for return statement.
+auto ASTReturnStmtNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTReturnStmtNode");
+
+    if (return_val)
+        return_val->pretty_print(out, level + 1);
 
     // First, we must print the closing curly brace.
     for (int i = 0; i < level * 4; ++i) {

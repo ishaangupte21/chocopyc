@@ -17,7 +17,8 @@ struct ASTLiteralExprNode : public ASTNode {
     F(Int)                                                                     \
     F(Float)                                                                   \
     F(String)                                                                  \
-    F(Boolean)
+    F(Boolean)                                                                 \
+    F(None)
 
 #define F(x) x,
     enum class LiteralKind { LITERAL_KINDS(F) };

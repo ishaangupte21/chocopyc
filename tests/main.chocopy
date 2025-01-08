@@ -1,1 +1,1 @@
-1 if True else 3 if 2 else 4
+return 2+ 4 

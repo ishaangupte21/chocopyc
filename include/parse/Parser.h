@@ -96,13 +96,23 @@ class Parser {
         return parse_chocopy_ternary_expr();
     };
 
+    // This method determines whether a given token can be the start of an
+    // expression.
+    [[nodiscard]] static auto is_chocopy_expr_start(const Token &tok) -> bool;
+
+    // This method parses chocopy statements.
+    [[nodiscard]] auto parse_chocopy_stmt() -> ReturnType;
+
+    // This method parses chocopy 'return' statements.
+    [[nodiscard]] auto parse_chocopy_return_stmt() -> ReturnType;
+
   public:
     Parser(Lexer &lexer, const Source::SourceFile &src_file)
         : lexer{lexer}, src_file{src_file} {}
 
     [[nodiscard]] auto parse_chocopy_compilation_unit() -> ReturnType {
         advance();
-        return parse_chocopy_expr();
+        return parse_chocopy_stmt();
     }
 };
 } // namespace chocopyc::Parse

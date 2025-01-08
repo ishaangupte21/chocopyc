@@ -4,6 +4,7 @@
 
 #include "parse/Parser.h"
 #include "parse/ASTExprNode.h"
+#include "parse/ASTStmtNode.h"
 #include "parse/Token.h"
 
 namespace chocopyc::Parse {
@@ -47,6 +48,8 @@ static auto get_chocopy_binary_operator(TokenKind kind)
         return ASTBinaryOpExprNode::Operator::BinaryPercent;
     }
 };
+
+// This method will
 
 // This method parses the most basic form of expressions within Chocopy. Here,
 // we will handle literals (integer, float, boolean, string), identifiers, and
@@ -102,6 +105,14 @@ auto Parser::parse_chocopy_primary_expr() -> Parser::ReturnType {
         primary_expr = std::make_unique<ASTNameExprNode>(tok.offset, tok.size);
 
         // Consume this identifier token.
+        advance();
+        break;
+    }
+    case TokenKind::KeywordNone: {
+        primary_expr = std::make_unique<ASTLiteralExprNode>(
+            ASTLiteralExprNode::LiteralKind::None, tok.offset, tok.size);
+        
+        // Consume the none keyword
         advance();
         break;
     }
@@ -690,6 +701,9 @@ auto Parser::parse_chocopy_logical_or_expr() -> ReturnType {
     return lhs;
 }
 
+// This method parses ternary expressions in Chocopy. The chocopy standard
+// defines them as being right associative operators. The grammar for this
+// expression: then_expr 'if' condition 'else' else_expr.
 auto Parser::parse_chocopy_ternary_expr() -> ReturnType {
     // First, we need to parse the 'then' expression.
     // We do not need to report errors here as it is possible that this was
@@ -753,5 +767,80 @@ auto Parser::parse_chocopy_ternary_expr() -> ReturnType {
         std::move(condition_expected.value()),
         std::move(then_expr_expected.value()),
         std::move(else_expr_expected.value()), start, size);
+}
+
+// This method determines whether a given token constitutes the start of an
+// expression.
+auto Parser::is_chocopy_expr_start(const Token &tok) -> bool {
+    switch (tok.kind) {
+    case TokenKind::KeywordNot:
+    case TokenKind::Minus:
+    case TokenKind::IntLiteral:
+    case TokenKind::FloatLiteral:
+    case TokenKind::StringLiteral:
+    case TokenKind::KeywordTrue:
+    case TokenKind::KeywordFalse:
+    case TokenKind::KeywordNone:
+    case TokenKind::LeftParen:
+    case TokenKind::LeftSquare:
+    case TokenKind::Identifier:
+        return true;
+    
+    default:
+        return false;
+    }
+}
+
+// This method is the starting point for paring all expressions in Chocopy.
+auto Parser::parse_chocopy_stmt() -> ReturnType {
+    switch (tok.kind) {
+    // Pass statement
+    case TokenKind::KeywordPass: {
+        // The pass statement is simple. We just need to record the location.
+        size_t pass_stmt_start = tok.offset;
+        int pass_stmt_size = tok.size;
+        advance();
+
+        return std::make_unique<ASTPassStmtNode>(pass_stmt_start,
+                                                 pass_stmt_size);
+    }
+
+    // Return statement
+    case TokenKind::KeywordReturn:
+        return parse_chocopy_return_stmt();
+    }
+}
+
+auto Parser::parse_chocopy_return_stmt() -> ReturnType {
+    // First, we will hold the 'return' keyword's position.
+    size_t return_start_pos = tok.offset;
+    int return_size = tok.size;
+    advance();
+
+    // Now, we might have an expression. This expression will be the expression
+    // that is returned out of the function. If there is no expression, we can
+    // just create the node.
+    if (!is_chocopy_expr_start(tok))
+        return std::make_unique<ASTReturnStmtNode>(nullptr, return_start_pos,
+                                                   return_size);
+
+    // If we have the start of an expression, we must get the expression.
+    size_t return_val_expected_start = tok.offset;
+    int return_val_expected_size = tok.size;
+
+    auto return_val_expected = parse_chocopy_expr();
+    if (!return_val_expected.has_value()) {
+        if (!return_val_expected.error())
+            report_parser_error(
+                "expected expression as return value after 'return'.",
+                return_val_expected_start, return_val_expected_size);
+
+        return std::unexpected{true};
+    }
+
+    // Now, we can make the node.
+    int size = return_val_expected.value()->end() - return_start_pos;
+    return std::make_unique<ASTReturnStmtNode>(
+        std::move(return_val_expected.value()), return_start_pos, size);
 }
 } // namespace chocopyc::Parse

@@ -111,7 +111,7 @@ auto Parser::parse_chocopy_primary_expr() -> Parser::ReturnType {
     case TokenKind::KeywordNone: {
         primary_expr = std::make_unique<ASTLiteralExprNode>(
             ASTLiteralExprNode::LiteralKind::None, tok.offset, tok.size);
-        
+
         // Consume the none keyword
         advance();
         break;
@@ -785,13 +785,13 @@ auto Parser::is_chocopy_expr_start(const Token &tok) -> bool {
     case TokenKind::LeftSquare:
     case TokenKind::Identifier:
         return true;
-    
+
     default:
         return false;
     }
 }
 
-// This method is the starting point for paring all expressions in Chocopy.
+// This method is the starting point for paring all statements in Chocopy.
 auto Parser::parse_chocopy_stmt() -> ReturnType {
     switch (tok.kind) {
     // Pass statement
@@ -801,6 +801,17 @@ auto Parser::parse_chocopy_stmt() -> ReturnType {
         int pass_stmt_size = tok.size;
         advance();
 
+        // Now, we also need a newline after the 'pass' keyword.
+        // However, newlines are not required at the end of the file.
+        if (!expect(TokenKind::Newline) && !expect(TokenKind::End)) {
+            report_parser_error(
+                "all statements must be followed by a newline character.",
+                tok.offset, tok.size);
+            return std::unexpected{true};
+        }
+        // Consume the newline.
+        advance();
+
         return std::make_unique<ASTPassStmtNode>(pass_stmt_start,
                                                  pass_stmt_size);
     }
@@ -808,6 +819,11 @@ auto Parser::parse_chocopy_stmt() -> ReturnType {
     // Return statement
     case TokenKind::KeywordReturn:
         return parse_chocopy_return_stmt();
+
+    // Statements beginning with an identifier can be quite complex, so we will
+    // parse them separately.
+    case TokenKind::Identifier:
+        return parse_chocopy_id_or_assignment_stmt();
     }
 }
 
@@ -838,9 +854,152 @@ auto Parser::parse_chocopy_return_stmt() -> ReturnType {
         return std::unexpected{true};
     }
 
+    // CHeck for the newline at the end.
+    if (!expect(TokenKind::Newline) && !expect(TokenKind::End)) {
+        report_parser_error(
+            "all statements must be followed by a newline character.",
+            tok.offset, tok.size);
+
+        return std::unexpected{true};
+    }
+
+    advance();
+
     // Now, we can make the node.
     int size = return_val_expected.value()->end() - return_start_pos;
     return std::make_unique<ASTReturnStmtNode>(
         std::move(return_val_expected.value()), return_start_pos, size);
+}
+
+auto Parser::parse_chocopy_id_or_assignment_stmt() -> ReturnType {
+    // Since we encountered an identifier, we will make a name node as it will
+    // be used regardless of the final resulting expression.
+    NodePtr target_expr =
+        std::make_unique<ASTNameExprNode>(tok.offset, tok.size);
+    auto target_kind = ASTAssignmentStmtNode::TargetKind::Name;
+    advance();
+
+    while (true) {
+        // Attribute referencing expression
+        if (expect(TokenKind::Dot)) {
+            // After a dot, we must have a name for the field.
+            advance();
+
+            if (!expect(TokenKind::Identifier)) {
+                report_parser_error("expected identifier as field name after "
+                                    "'.' in attribute referencing expression.",
+                                    tok.offset, tok.size);
+
+                return std::unexpected{true};
+            }
+
+            // Now, if we get the identifier, we can construct the
+            // AttributeRefNode and set that to be the target expression.
+            auto name_node =
+                std::make_unique<ASTNameExprNode>(tok.offset, tok.size);
+            advance();
+
+            size_t start = target_expr->offset;
+            int size = name_node->end() - start;
+
+            target_expr = std::make_unique<ASTAttributeRefExprNode>(
+                std::move(target_expr), std::move(name_node), start, size);
+            target_kind = ASTAssignmentStmtNode::TargetKind::AttributeRef;
+
+            continue;
+        }
+
+        // Indexing expression.
+        if (expect(TokenKind::LeftSquare)) {
+            // After the left square, we need an expression for the index.
+            advance();
+
+            size_t index_expr_start = tok.offset;
+            int index_expr_size = tok.size;
+
+            auto index_expr_expected = parse_chocopy_expr();
+            if (!index_expr_expected.has_value()) {
+                if (!index_expr_expected.error())
+                    report_parser_error(
+                        "expected expression after '[' in indexing expression.",
+                        index_expr_start, index_expr_size);
+
+                return std::unexpected{true};
+            }
+
+            // Now, we need a closing right square bracket.
+            if (!expect(TokenKind::RightSquare)) {
+                report_parser_error(
+                    "expected ']' at the end of an indexing expression.",
+                    index_expr_start, index_expr_size);
+
+                return std::unexpected{true};
+            }
+
+            // Now, we must compute the size of the new node and construct the
+            // node.
+            size_t start = target_expr->offset;
+            int size = tok.end() - start;
+            advance();
+
+            target_expr = std::make_unique<ASTIndexingExprNode>(
+                std::move(target_expr), std::move(index_expr_expected.value()),
+                start, size);
+            target_kind = ASTAssignmentStmtNode::TargetKind::IndexingExpr;
+
+            continue;
+        }
+
+        // For everything else, we will break out of the loop and use the target
+        // expression.
+        break;
+    }
+
+    // Now, this target an be used for an assignment statement. If the next
+    // token is not '=', we must return the target expression as it is.
+    if (!expect(TokenKind::Equals)) {
+        // Since this marks the end of the statement, we must have a newline
+        // character or EOF.
+        if (!expect(TokenKind::Newline) && !expect(TokenKind::End)) {
+            report_parser_error(
+                "all statements must be followed by a newline character.",
+                tok.offset, tok.size);
+
+            return std::unexpected{true};
+        }
+
+        // Consume the newline.
+        advance();
+
+        // Now, we can make the node and return it.
+        size_t start = target_expr->size;
+        int size = target_expr->end();
+
+        return std::make_unique<ASTExprStmtNode>(std::move(target_expr), start,
+                                                 size);
+    }
+
+    // Otherwise, we must now have an expression to be assigned to the target.
+    advance();
+
+    size_t rhs_expected_start = tok.offset;
+    int rhs_expected_size = tok.size;
+
+    auto rhs_expected = parse_chocopy_expr();
+    if (!rhs_expected.has_value()) {
+        if (!rhs_expected.error())
+            report_parser_error("expected expression on the right hand side of "
+                                "'=' in an assignment expression.",
+                                rhs_expected_start, rhs_expected_size);
+
+        return std::unexpected{true};
+    }
+
+    size_t start = target_expr->offset;
+    int size = rhs_expected.value()->end() - start;
+
+    return std::make_unique<ASTAssignmentStmtNode>(
+        std::move(target_expr), target_kind, std::move(rhs_expected.value()),
+        start, size);
 }
 } // namespace chocopyc::Parse

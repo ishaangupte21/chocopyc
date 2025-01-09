@@ -351,4 +351,83 @@ auto ASTReturnStmtNode::pretty_print(FILE *out, int level) -> void {
     std::println(out, "}}");
 }
 
+// Pretty printing for assignment statement.
+auto ASTAssignmentStmtNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTAssignmentStatementNode");
+
+    // Print the target expr kind.
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "target kind: {}",
+                 target_names[static_cast<int>(target_kind)]);
+
+    // Now, we can print the target expression and the RHS.
+    target_expr->pretty_print(out, level + 1);
+    rhs->pretty_print(out, level + 1);
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for expression statements.
+auto ASTExprStmtNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTExprStmtNode");
+
+    // Now, we can print the expr.
+    expr->pretty_print(out, level + 1);
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for stmt blocks.
+auto ASTStmtBlockNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTStmtBlockNode");
+
+    // Print the statements.
+    for (auto &stmt : stmts) {
+        stmt->pretty_print(out, level + 1);
+    }
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
 } // namespace chocopyc::Parse

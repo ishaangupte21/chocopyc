@@ -106,6 +106,12 @@ class Parser {
     // This method parses chocopy 'return' statements.
     [[nodiscard]] auto parse_chocopy_return_stmt() -> ReturnType;
 
+    // This method parses chocopy statements beginning with an identifier.
+    [[nodiscard]] auto parse_chocopy_id_or_assignment_stmt() -> ReturnType;
+
+    // This method parses Chocopy statement blocks.
+    [[nodiscard]] auto parse_chocopy_stmt_block() -> ReturnType;
+
   public:
     Parser(Lexer &lexer, const Source::SourceFile &src_file)
         : lexer{lexer}, src_file{src_file} {}

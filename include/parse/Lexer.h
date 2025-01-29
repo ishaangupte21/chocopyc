@@ -77,6 +77,11 @@ class Lexer {
 
     // This method will serve as the main lexer routine.
     auto lex_next_tok(Token &tok) -> void;
+
+    // This method will expose the current indentation level.
+    [[nodiscard]] auto get_indentation_level() -> int {
+        return whitespace_stack.top();
+    }
 };
 } // namespace chocopyc::Parse
 

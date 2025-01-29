@@ -5,7 +5,6 @@
 #include "parse/Parser.h"
 #include "parse/ASTExprNode.h"
 #include "parse/ASTStmtNode.h"
-#include "parse/Token.h"
 
 namespace chocopyc::Parse {
 // This method performs enum conversions between token types and AST binary
@@ -791,6 +790,20 @@ auto Parser::is_chocopy_expr_start(const Token &tok) -> bool {
     }
 }
 
+// This method will be used for error recovery while parsing statements in
+// chocopy. This is basic error recovery as we will just consume all tokens
+// until either a newline or EOF is found. The underlying assumption here is
+// that a newline token must appear before a dedent token.
+auto Parser::chocopy_basic_error_recovery() -> void {
+    // We just want to consume all tokens until we get either a newline or EOF.
+    while (!expect(TokenKind::Newline) && !expect(TokenKind::End))
+        advance();
+
+    // Now, if we have a newline token, we must consume that token.
+    if (expect(TokenKind::Newline))
+        advance();
+}
+
 // This method is the starting point for paring all statements in Chocopy.
 auto Parser::parse_chocopy_stmt() -> ReturnType {
     switch (tok.kind) {
@@ -824,6 +837,14 @@ auto Parser::parse_chocopy_stmt() -> ReturnType {
     // parse them separately.
     case TokenKind::Identifier:
         return parse_chocopy_id_or_assignment_stmt();
+
+    // If statements
+    case TokenKind::KeywordIf:
+        return parse_chocopy_if_stmt();
+
+    // While statements
+    case TokenKind::KeywordWhile:
+        return parse_chocopy_while_stmt();
     }
 }
 
@@ -871,6 +892,10 @@ auto Parser::parse_chocopy_return_stmt() -> ReturnType {
         std::move(return_val_expected.value()), return_start_pos, size);
 }
 
+// This method parses all statements that begin with an identifier. Here, we can
+// either have just an expression, or an assignment as well. Therefore, we will
+// first begin by matching target expressions. After that, if an '=' is found,
+// we can treat it as as an assignment statement.
 auto Parser::parse_chocopy_id_or_assignment_stmt() -> ReturnType {
     // Since we encountered an identifier, we will make a name node as it will
     // be used regardless of the final resulting expression.
@@ -995,11 +1020,279 @@ auto Parser::parse_chocopy_id_or_assignment_stmt() -> ReturnType {
         return std::unexpected{true};
     }
 
+    // All statements must end with a newline.
+    if (!expect(TokenKind::Newline) && !expect(TokenKind::End)) {
+        report_parser_error(
+            "all statements must be followed by a newline character.",
+            tok.offset, tok.size);
+
+        return std::unexpected{true};
+    }
+
+    // Consume newline
+    advance();
+
     size_t start = target_expr->offset;
     int size = rhs_expected.value()->end() - start;
 
     return std::make_unique<ASTAssignmentStmtNode>(
         std::move(target_expr), target_kind, std::move(rhs_expected.value()),
         start, size);
+}
+
+// This method parses statement blocks in Chocopy. Statement blocks are groups
+// of statements enclosed in an indentation block. These blocks follow if, for,
+// while statements, and function declarations.
+auto Parser::parse_chocopy_stmt_block() -> ReturnType {
+    // First, we must have a newline token.
+    if (!expect(TokenKind::Newline)) {
+        report_parser_error(
+            "expected newline before the start of an indented block.",
+            tok.offset, tok.size);
+        return std::unexpected{true};
+    }
+
+    // Consume the newline token.
+    size_t newline_offset = tok.offset;
+    advance();
+
+    // Now, we need an indent token.
+    if (!expect(TokenKind::Indent)) {
+        report_parser_error("expected an indentation before a new block.",
+                            tok.offset, tok.size);
+        return std::unexpected{true};
+    }
+
+    // Consume the indent.
+    advance();
+
+    // Now, we need statements for the block. The Chocopy spec requires at least
+    // one statement inside of the block.
+    std::vector<NodePtr> stmts;
+
+    size_t first_stmt_expected_start = tok.offset;
+    int first_stmt_expected_size = tok.size;
+
+    auto first_stmt_expected = parse_chocopy_stmt();
+    if (!first_stmt_expected.has_value()) {
+        if (!first_stmt_expected.error())
+            report_parser_error(
+                "expected at least one statement inside of an indented block.",
+                first_stmt_expected_start, first_stmt_expected_size);
+
+        return std::unexpected{true};
+    }
+
+    // Now that we have the statement, we can add it to our list and keep
+    // looking for more statements.
+    stmts.push_back(std::move(first_stmt_expected.value()));
+
+    // Now, until we get a dedent or EOF token, we must keep looking for
+    // statements.
+    while (!expect(TokenKind::Dedent) && !expect(TokenKind::End)) {
+        // We need a statement here.
+        size_t stmt_expected_start = tok.offset;
+        int stmt_expected_size = tok.size;
+
+        auto stmt_expected = parse_chocopy_stmt();
+        // If we successfully parsed a statement, we can just add it to the
+        // list. Otherwise, we need to perform an error recovery mechanism to
+        // continue parsing.
+        if (stmt_expected.has_value()) {
+            stmts.push_back(std::move(stmt_expected.value()));
+        } else {
+            // Here, we need to report the error that we encountered and recover
+            // from it.
+            if (!stmt_expected.error())
+                report_parser_error("expected statement within indented block.",
+                                    stmt_expected_start, stmt_expected_size);
+
+            chocopy_basic_error_recovery();
+        }
+    }
+
+    // We want to compute the size of the block.
+    // Then, if the following token is a dedent token, we must consume it.
+    int size = tok.end() - newline_offset;
+
+    if (expect(TokenKind::Dedent))
+        advance();
+
+    // Now, we can construct the node and return.
+    return std::make_unique<ASTStmtBlockNode>(std::move(stmts), newline_offset,
+                                              size);
+}
+
+// This method parses 'if' statements in Chocopy. The idea is to start with the
+// most basic 'if' case, and then check for 'elif' cases and ultimately, the
+// 'else' case. This gets translated into conditional jumps during lowering.
+auto Parser::parse_chocopy_if_stmt() -> ReturnType {
+    // First, we will store the position of 'if' and consume it.
+    size_t if_offset = tok.offset;
+    advance();
+
+    // Now, we need an expression to serve as the condition.
+    size_t condition_expr_start = tok.offset;
+    int condition_expr_size = tok.size;
+
+    auto condition_expr = parse_chocopy_expr();
+    if (!condition_expr.has_value()) {
+        if (!condition_expr.error())
+            report_parser_error(
+                "expected expression as condition for 'if' statement.",
+                condition_expr_start, condition_expr_size);
+
+        return std::unexpected{true};
+    }
+
+    // Now, we need a colon.
+    if (!expect(TokenKind::Colon)) {
+        report_parser_error(
+            "expected ':' after condition expression in 'if' statement.",
+            tok.offset, tok.size);
+        return std::unexpected{true};
+    }
+
+    // We can consume the colon.
+    advance();
+
+    // Now, we need a statement block.
+    auto stmt_block = parse_chocopy_stmt_block();
+    // In case we get an error here, we do not need to report it as the
+    // statement block parsing method always reports errors.
+    if (!stmt_block.has_value())
+        return stmt_block;
+
+    // This variable will store the size of the full 'if' statement.
+    // We need to do this because we don't have a specific delimiting character
+    // at the end of the block.
+    int if_stmt_size = stmt_block.value()->end() - if_offset;
+
+    std::vector<std::unique_ptr<ASTElIfStmtNode>> elif_blocks;
+
+    // Now, while we have the 'elif' tokens, we need to parse the 'elif' blocks.
+    while (expect(TokenKind::KeywordElif)) {
+        // Each 'elif' block will come with a condition.
+        size_t elif_offset = tok.offset;
+        advance();
+
+        size_t elif_condition_offset = tok.offset;
+        int elif_condition_size = tok.size;
+
+        auto elif_condition_expected = parse_chocopy_expr();
+        if (!elif_condition_expected.has_value()) {
+            if (!elif_condition_expected.error())
+                report_parser_error(
+                    "expected expression for condition in 'elif' clause.",
+                    elif_condition_offset, elif_condition_size);
+
+            return std::unexpected{true};
+        }
+
+        // Now, we need a colon.
+        if (!expect(TokenKind::Colon)) {
+            report_parser_error(
+                "expected ':' after condition expression in 'elif' clause.",
+                tok.offset, tok.size);
+            return std::unexpected{true};
+        }
+
+        // Consume the colon if it exits.
+        advance();
+
+        auto elif_block = parse_chocopy_stmt_block();
+        // Again, we do not need to report any errors here.
+        if (!elif_block.has_value())
+            return elif_block;
+
+        int size = elif_block.value()->end() - elif_offset;
+        if_stmt_size = elif_block.value()->end() - if_offset;
+
+        // Now, we can construct the node.
+        elif_blocks.push_back(std::make_unique<ASTElIfStmtNode>(
+            std::move(elif_condition_expected.value()),
+            std::move(elif_block.value()), elif_offset, size));
+    }
+
+    NodePtr else_block = nullptr;
+
+    // After all 'elif' blocks, we can have an 'else' block.
+    if (expect(TokenKind::KeywordElse)) {
+        // 'Else' blocks simply need a colon followed by a statement block.
+        size_t else_offset = tok.offset;
+        advance();
+
+        // Now, we need a colon.
+        if (!expect(TokenKind::Colon)) {
+            report_parser_error("expected ':' after 'else'.", tok.offset,
+                                tok.size);
+            return std::unexpected{true};
+        }
+
+        // Consume the colon.
+        advance();
+
+        // Now, we need a statement block.
+        auto else_block_expected = parse_chocopy_stmt_block();
+        // We do not need to report errors here.
+        if (!else_block_expected.has_value())
+            return else_block_expected;
+
+        // If we sucessfully parse the 'else' statement, we can set the else
+        // block.
+        if_stmt_size = else_block_expected.value()->end() - if_stmt_size;
+        else_block = std::move(else_block_expected.value());
+    }
+
+    // Now, we can construct the node for the statement.
+    return std::make_unique<ASTIfStmtNode>(
+        std::move(condition_expr.value()), std::move(stmt_block.value()),
+        std::move(elif_blocks), std::move(else_block), if_offset, if_stmt_size);
+}
+
+// This method parses 'while' statements in Chocopy. There will be a condition
+// for the loop, and the statement body that is to be executed.
+auto Parser::parse_chocopy_while_stmt() -> ReturnType {
+    // First, we will record the position and consume the 'while' keyword.
+    size_t while_offset = tok.offset;
+    advance();
+
+    // Now, we need a condition.
+    size_t condition_start_offset = tok.offset;
+    int condition_start_size = tok.size;
+
+    auto condition_expected = parse_chocopy_expr();
+    if (!condition_expected.has_value()) {
+        if (!condition_expected.error())
+            report_parser_error(
+                "expected expression as condition after 'while'.",
+                condition_start_offset, condition_start_size);
+
+        return std::unexpected{true};
+    }
+
+    // Now, we need a colon.
+    if (!expect(TokenKind::Colon)) {
+        report_parser_error(
+            "expected ':' after condition in 'while' statement.", tok.offset,
+            tok.size);
+        return std::unexpected{true};
+    }
+
+    // Consume the colon.
+    advance();
+
+    // Now, we need a statement block.
+    // We will not report errors here.
+    auto stmt_block_expected = parse_chocopy_stmt_block();
+    if (!stmt_block_expected.has_value())
+        return stmt_block_expected;
+
+    // Once we have everything, we can return the node.
+    int size = stmt_block_expected.value()->end() - while_offset;
+
+    return std::make_unique<ASTWhileStmtNode>(
+        std::move(condition_expected.value()),
+        std::move(stmt_block_expected.value()), while_offset, size);
 }
 } // namespace chocopyc::Parse

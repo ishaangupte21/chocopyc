@@ -91,7 +91,7 @@ auto ASTListExprNode::pretty_print(FILE *out, int level) -> void {
     }
     std::println(out, "[");
 
-    for (auto &expr : contents) {
+    for (const auto &expr : contents) {
         expr->pretty_print(out, level + 1);
     }
 
@@ -204,7 +204,7 @@ auto ASTFunctionCallExprNode::pretty_print(FILE *out, int level) -> void {
     }
     std::println(out, "[");
 
-    for (auto &expr : args) {
+    for (const auto &expr : args) {
         expr->pretty_print(out, level + 1);
     }
 
@@ -419,9 +419,87 @@ auto ASTStmtBlockNode::pretty_print(FILE *out, int level) -> void {
     std::println(out, "name: ASTStmtBlockNode");
 
     // Print the statements.
-    for (auto &stmt : stmts) {
+    for (const auto &stmt : stmts) {
         stmt->pretty_print(out, level + 1);
     }
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for if statements.
+auto ASTIfStmtNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTIfStmtNode");
+
+    condition->pretty_print(out, level + 1);
+    then_block->pretty_print(out, level + 1);
+
+    for (const auto &elif_block : elif_blocks) {
+        elif_block->pretty_print(out, level + 1);
+    }
+
+    if (else_block)
+        else_block->pretty_print(out, level + 1);
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for 'elif' statements
+auto ASTElIfStmtNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTElifStmtNode");
+
+    condition->pretty_print(out, level + 1);
+
+    block->pretty_print(out, level + 1);
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for 'while' statments.
+auto ASTWhileStmtNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTWhileStmtNode");
+
+    condition->pretty_print(out, level + 1);
+
+    block->pretty_print(out, level + 1);
 
     // First, we must print the closing curly brace.
     for (int i = 0; i < level * 4; ++i) {

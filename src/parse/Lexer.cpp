@@ -23,7 +23,7 @@ std::unordered_map<std::string_view, TokenKind> Lexer::keyword_table = {
     {"continue", TokenKind::KeywordContinue},
     {"def", TokenKind::KeywordDef},
     {"del", TokenKind::KeywordDel},
-    {"elif", TokenKind::KeywordElse},
+    {"elif", TokenKind::KeywordElif},
     {"else", TokenKind::KeywordElse},
     {"except", TokenKind::KeywordExcept},
     {"finally", TokenKind::KeywordFinally},

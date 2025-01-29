@@ -112,6 +112,15 @@ class Parser {
     // This method parses Chocopy statement blocks.
     [[nodiscard]] auto parse_chocopy_stmt_block() -> ReturnType;
 
+    // This method parses Chocopy if statements.
+    [[nodiscard]] auto parse_chocopy_if_stmt() -> ReturnType;
+
+    // This method parses Chocopy while statements.
+    [[nodiscard]] auto parse_chocopy_while_stmt() -> ReturnType;
+
+    // This method performs basic error recovery for Chocopy statements.
+    auto chocopy_basic_error_recovery() -> void;
+
   public:
     Parser(Lexer &lexer, const Source::SourceFile &src_file)
         : lexer{lexer}, src_file{src_file} {}

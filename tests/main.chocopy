@@ -1,1 +1,3 @@
-my_person.my_expr = 2
+while True:
+    y = 17
+    pass

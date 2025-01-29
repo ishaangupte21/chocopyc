@@ -82,6 +82,58 @@ struct ASTStmtBlockNode : public ASTNode {
 
     auto pretty_print(FILE *out, int level) -> void override;
 };
+
+struct ASTElIfStmtNode : public ASTNode {
+    // This field represents the condition for the 'elif' block.
+    NodePtr condition;
+
+    // This field represents the block that goes with this clause.
+    NodePtr block;
+
+    ASTElIfStmtNode(NodePtr condition, NodePtr block, size_t offset, int size)
+        : ASTNode{offset, size}, condition{std::move(condition)},
+          block{std::move(block)} {}
+
+    auto pretty_print(FILE *out, int level) -> void override;
+};
+
+struct ASTIfStmtNode : public ASTNode {
+    // This field represents the condition of the initial 'if' clause.
+    NodePtr condition;
+
+    // This field represents the 'then' block.
+    NodePtr then_block;
+
+    // This field represents the list of all 'elif' blocks.
+    std::vector<std::unique_ptr<ASTElIfStmtNode>> elif_blocks;
+
+    // This field represents the 'else' block.
+    NodePtr else_block;
+
+    ASTIfStmtNode(NodePtr condition, NodePtr then_block,
+                  std::vector<std::unique_ptr<ASTElIfStmtNode>> elif_blocks,
+                  NodePtr else_block, size_t offset, int size)
+        : ASTNode{offset, size}, condition{std::move(condition)},
+          then_block{std::move(then_block)},
+          elif_blocks{std::move(elif_blocks)},
+          else_block{std::move(else_block)} {}
+
+    auto pretty_print(FILE *out, int level) -> void override;
+};
+
+struct ASTWhileStmtNode : public ASTNode {
+    // This field represents the expression used for the condition.
+    NodePtr condition;
+
+    // This field represents the statement block.
+    NodePtr block;
+
+    ASTWhileStmtNode(NodePtr condition, NodePtr block, size_t offset, int size)
+        : ASTNode{offset, size}, condition{std::move(condition)},
+          block{std::move(block)} {}
+
+    auto pretty_print(FILE *out, int level) -> void override;
+};
 } // namespace chocopyc::Parse
 
 #endif

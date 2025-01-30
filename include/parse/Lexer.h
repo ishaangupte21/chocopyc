@@ -47,14 +47,14 @@ class Lexer {
     }
 
     // This method checks whether the previous line in the input was empty.
-    auto was_last_line_empty(Token &tok) -> bool {
+    [[nodiscard]] auto was_last_line_empty(Token &tok) -> bool {
         return tok.kind == TokenKind::Newline ||
                tok.kind == TokenKind::Indent || tok.kind == TokenKind::Dedent;
     }
 
     // This method consumes all horizontal whitespace ahead of a given token and
     // returns the number of bytes consumed.
-    auto consume_horizontal_whitespace() -> int;
+    [[nodiscard]] auto consume_horizontal_whitespace() -> int;
 
     // This method scans numeric literals from the source.
     auto lex_numeric_literal(Token &tok, char *tok_start) -> void;

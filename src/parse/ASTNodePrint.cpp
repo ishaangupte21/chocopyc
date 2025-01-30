@@ -508,4 +508,30 @@ auto ASTWhileStmtNode::pretty_print(FILE *out, int level) -> void {
     std::println(out, "}}");
 }
 
+// Pretty printing for 'for' statments.
+auto ASTForStmtNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTForStmtNode");
+
+    name->pretty_print(out, level + 1);
+
+    container->pretty_print(out, level + 1);
+
+    block->pretty_print(out, level + 1);
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
 } // namespace chocopyc::Parse

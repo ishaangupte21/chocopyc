@@ -845,6 +845,10 @@ auto Parser::parse_chocopy_stmt() -> ReturnType {
     // While statements
     case TokenKind::KeywordWhile:
         return parse_chocopy_while_stmt();
+
+    // For statements
+    case TokenKind::KeywordFor:
+        return parse_chocopy_for_stmt();
     }
 }
 
@@ -1294,5 +1298,78 @@ auto Parser::parse_chocopy_while_stmt() -> ReturnType {
     return std::make_unique<ASTWhileStmtNode>(
         std::move(condition_expected.value()),
         std::move(stmt_block_expected.value()), while_offset, size);
+}
+
+// This method parses 'for' statements in Chocopy. There will be an identifier,
+// which serves as the iterator, so to speak, that iterates over a given
+// collection.
+auto Parser::parse_chocopy_for_stmt() -> ReturnType {
+    // First, we will consume 'for'.
+    size_t for_offset = tok.offset;
+    advance();
+
+    // Now, we need an identifier to represent the name of the reference in each
+    // iteration.
+    if (!expect(TokenKind::Identifier)) {
+        report_parser_error(
+            "expected identifier as name for iterator after 'for'.", tok.offset,
+            tok.size);
+        return std::unexpected{true};
+    }
+
+    // Now, we must make the node and consume the name.
+    auto name_expr = std::make_unique<ASTNameExprNode>(tok.offset, tok.size);
+    advance();
+
+    // Now, we need the 'in' keyword.
+    if (!expect(TokenKind::KeywordIn)) {
+        report_parser_error(
+            "expected 'in' after iterator name in 'for' statement", tok.offset,
+            tok.size);
+
+        return std::unexpected{true};
+    }
+
+    // Consume 'in'.
+    advance();
+
+    // Now, we need the expression that represents the container to be iterated
+    // over.
+    size_t container_expr_start = tok.offset;
+    int container_expr_start_size = tok.size;
+
+    auto container_expected = parse_chocopy_expr();
+    if (!container_expected.has_value()) {
+        if (!container_expected.error())
+            report_parser_error("expected expression as container to be "
+                                "iterated over in 'for' statement.",
+                                container_expr_start,
+                                container_expr_start_size);
+
+        return std::unexpected{true};
+    }
+
+    // Now, we need a colon.
+    if (!expect(TokenKind::Colon)) {
+        report_parser_error(
+            "expected ':' after container expression in 'for' statement.",
+            tok.offset, tok.size);
+        return std::unexpected{true};
+    }
+
+    // Consume the colon.
+    advance();
+
+    // Now, we need a statement block. We will not report errors here.
+    auto stmt_block = parse_chocopy_stmt_block();
+    if (!stmt_block.has_value())
+        return stmt_block;
+
+    // Now, we can return the node
+    int size = stmt_block.value()->end() - for_offset;
+
+    return std::make_unique<ASTForStmtNode>(
+        std::move(name_expr), std::move(container_expected.value()),
+        std::move(stmt_block.value()), for_offset, size);
 }
 } // namespace chocopyc::Parse

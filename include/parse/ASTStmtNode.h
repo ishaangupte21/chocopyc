@@ -5,9 +5,8 @@
 #ifndef CHOCOPYC_PARSE_ASTSTMTNODE_H
 #define CHOCOPYC_PARSE_ASTSTMTNODE_H
 
+#include "parse/ASTExprNode.h"
 #include "parse/ASTNode.h"
-
-#include <vector>
 
 namespace chocopyc::Parse {
 struct ASTPassStmtNode : public ASTNode {
@@ -134,6 +133,25 @@ struct ASTWhileStmtNode : public ASTNode {
 
     auto pretty_print(FILE *out, int level) -> void override;
 };
+
+struct ASTForStmtNode : public ASTNode {
+    // This field represents the name to be used on each iteration.
+    std::unique_ptr<ASTNameExprNode> name;
+
+    // This field represents the container to be iterated over.
+    NodePtr container;
+
+    // This field represents the stmt block of the loop.
+    NodePtr block;
+
+    ASTForStmtNode(std::unique_ptr<ASTNameExprNode> name, NodePtr container,
+                   NodePtr block, size_t offset, int size)
+        : ASTNode{offset, size}, name{std::move(name)},
+          container{std::move(container)}, block{std::move(block)} {}
+
+    auto pretty_print(FILE *out, int level) -> void override;
+};
+
 } // namespace chocopyc::Parse
 
 #endif

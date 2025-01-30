@@ -126,7 +126,7 @@ auto SourceFile::get_location(size_t offset) const -> std::pair<int, int> {
     // start of the last new line character and add one.
     auto &[last_newline_pos, last_newline_size] = *(newline_greater_than - 1);
 
-    int col_no = offset - (last_newline_pos + last_newline_pos) + 1;
+    int col_no = offset - (last_newline_pos + last_newline_size) + 1;
 
     return std::make_pair(line_no, col_no);
 }

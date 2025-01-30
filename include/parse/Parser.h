@@ -121,6 +121,9 @@ class Parser {
     // This method parses Chocopy for statements.
     [[nodiscard]] auto parse_chocopy_for_stmt() -> ReturnType;
 
+    // This method parses Chocopy expression statements.
+    [[nodiscard]] auto parse_chocopy_expr_stmt() -> ReturnType;
+
     // This method performs basic error recovery for Chocopy statements.
     auto chocopy_basic_error_recovery() -> void;
 

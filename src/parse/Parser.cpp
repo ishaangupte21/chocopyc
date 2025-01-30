@@ -849,6 +849,19 @@ auto Parser::parse_chocopy_stmt() -> ReturnType {
     // For statements
     case TokenKind::KeywordFor:
         return parse_chocopy_for_stmt();
+
+    // The next possibility we have is that of an expression being a
+    // statement.
+    default: {
+        // If the current token represents the FIRST of an expression, we must
+        // assume an expression statement.
+        if (is_chocopy_expr_start(tok))
+            return parse_chocopy_expr_stmt();
+
+        // Other, we have an error.
+        // We will not report any errors here.
+        return std::unexpected{false};
+    }
     }
 }
 
@@ -1371,5 +1384,36 @@ auto Parser::parse_chocopy_for_stmt() -> ReturnType {
     return std::make_unique<ASTForStmtNode>(
         std::move(name_expr), std::move(container_expected.value()),
         std::move(stmt_block.value()), for_offset, size);
+}
+
+auto Parser::parse_chocopy_expr_stmt() -> ReturnType {
+    // We need to get an expression here.
+    size_t expr_start_offset = tok.offset;
+    int expr_start_size = tok.size;
+
+    auto expr_expected = parse_chocopy_expr();
+    if (!expr_expected.has_value()) {
+        if (!expr_expected.error())
+            report_parser_error("expected expression.", expr_start_offset,
+                                expr_start_size);
+
+        return std::unexpected{true};
+    }
+
+    // Now, we need a newline to terminate the statement.
+    if (!expect(TokenKind::Newline) && !expect(TokenKind::End)) {
+        report_parser_error(
+            "all statements must be followed by a newline character.",
+            tok.offset, tok.size);
+
+        return std::unexpected{true};
+    }
+
+    advance();
+
+    // Now, we can return the node.
+    int size = expr_expected.value()->size;
+    return std::make_unique<ASTExprStmtNode>(std::move(expr_expected.value()),
+                                             expr_start_offset, size);
 }
 } // namespace chocopyc::Parse

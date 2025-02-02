@@ -2,6 +2,7 @@
     This file provides method implementations for pretty printing AST nodes.
 */
 
+#include "parse/ASTDeclNode.h"
 #include "parse/ASTExprNode.h"
 #include "parse/ASTStmtNode.h"
 
@@ -526,6 +527,78 @@ auto ASTForStmtNode::pretty_print(FILE *out, int level) -> void {
     container->pretty_print(out, level + 1);
 
     block->pretty_print(out, level + 1);
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for 'global' statments.
+auto ASTGlobalNameDeclNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTGlobalNameDeclNode");
+
+    name->pretty_print(out, level + 1);
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for 'nonlocal' statments.
+auto ASTNonlocalNameDeclNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTNonlocalNameDeclNode");
+
+    name->pretty_print(out, level + 1);
+
+    // First, we must print the closing curly brace.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "}}");
+}
+
+// Pretty printing for type expressions.
+auto ASTTypeExprNode::pretty_print(FILE *out, int level) -> void {
+    // First, we must set the indentation level for the name.
+    for (int i = 0; i < level * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "{{");
+
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "name: ASTTypeExprNode");
+
+    inner_type->pretty_print(out, level + 1);
+
+    // Print whether this is an array type.
+    for (int i = 0; i < (level + 1) * 4; ++i) {
+        std::print(out, " ");
+    }
+    std::println(out, "is_array_type: {}", is_array_type);
 
     // First, we must print the closing curly brace.
     for (int i = 0; i < level * 4; ++i) {

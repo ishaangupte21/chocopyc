@@ -124,6 +124,15 @@ class Parser {
     // This method parses Chocopy expression statements.
     [[nodiscard]] auto parse_chocopy_expr_stmt() -> ReturnType;
 
+    // This method parses Chocopy global name declarations.
+    [[nodiscard]] auto parse_chocopy_global_name_decl() -> ReturnType;
+
+    // This method parses Chocopy nonlocal name declarations.
+    [[nodiscard]] auto parse_chocopy_nonlocal_name_decl() -> ReturnType;
+
+    // This method parses a Chocopy type expression.
+    [[nodiscard]] auto parse_chocopy_type_expr() -> ReturnType;
+
     // This method performs basic error recovery for Chocopy statements.
     auto chocopy_basic_error_recovery() -> void;
 
@@ -133,7 +142,7 @@ class Parser {
 
     [[nodiscard]] auto parse_chocopy_compilation_unit() -> ReturnType {
         advance();
-        return parse_chocopy_stmt();
+        return parse_chocopy_type_expr();
     }
 };
 } // namespace chocopyc::Parse

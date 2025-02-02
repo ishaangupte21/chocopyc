@@ -1,5 +1,1 @@
-for i in my_list:
-    x = 13
-    1 + 2
-    foo.bar = "baz"
-    return
+[12]

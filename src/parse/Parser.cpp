@@ -3,8 +3,11 @@
 */
 
 #include "parse/Parser.h"
+#include "parse/ASTDeclNode.h"
 #include "parse/ASTExprNode.h"
 #include "parse/ASTStmtNode.h"
+#include "parse/Token.h"
+#include <memory>
 
 namespace chocopyc::Parse {
 // This method performs enum conversions between token types and AST binary
@@ -1386,6 +1389,8 @@ auto Parser::parse_chocopy_for_stmt() -> ReturnType {
         std::move(stmt_block.value()), for_offset, size);
 }
 
+// This method parses expression statements in Chocopy. Expression statements
+// are just expressions that are used as declarations within a statement block.
 auto Parser::parse_chocopy_expr_stmt() -> ReturnType {
     // We need to get an expression here.
     size_t expr_start_offset = tok.offset;
@@ -1415,5 +1420,132 @@ auto Parser::parse_chocopy_expr_stmt() -> ReturnType {
     int size = expr_expected.value()->size;
     return std::make_unique<ASTExprStmtNode>(std::move(expr_expected.value()),
                                              expr_start_offset, size);
+}
+
+// This method parses global name declarations in Chocopy. The syntax is
+// 'global' name NEWLINE.
+auto Parser::parse_chocopy_global_name_decl() -> ReturnType {
+    // First, we will consume the 'global' keyword.
+    size_t global_offset = tok.offset;
+    advance();
+
+    // Now, we must have a name.
+    if (!expect(TokenKind::Identifier)) {
+        report_parser_error("expected identifier as name for global variable.",
+                            tok.offset, tok.size);
+        return std::unexpected{true};
+    }
+
+    auto name_expr = std::make_unique<ASTNameExprNode>(tok.offset, tok.size);
+    advance();
+
+    // Now, we need a newline to terminate the statement.
+    if (!expect(TokenKind::Newline) && !expect(TokenKind::End)) {
+        report_parser_error(
+            "all statements must be followed by a newline character.",
+            tok.offset, tok.size);
+
+        return std::unexpected{true};
+    }
+
+    advance();
+
+    int size = name_expr->end() - global_offset;
+    return std::make_unique<ASTGlobalNameDeclNode>(std::move(name_expr),
+                                                   global_offset, size);
+}
+
+// This method parses nonlocal name declarations in Chocopy. The syntax is
+// 'nonlocal' name NEWLINE.
+auto Parser::parse_chocopy_nonlocal_name_decl() -> ReturnType {
+    // First, we will consume the 'nonlocal' keyword.
+    size_t nonlocal_offset = tok.offset;
+    advance();
+
+    // Now, we must have a name.
+    if (!expect(TokenKind::Identifier)) {
+        report_parser_error(
+            "expected identifier as name for nonlocal variable.", tok.offset,
+            tok.size);
+        return std::unexpected{true};
+    }
+
+    auto name_expr = std::make_unique<ASTNameExprNode>(tok.offset, tok.size);
+    advance();
+
+    // Now, we need a newline to terminate the statement.
+    if (!expect(TokenKind::Newline) && !expect(TokenKind::End)) {
+        report_parser_error(
+            "all statements must be followed by a newline character.",
+            tok.offset, tok.size);
+
+        return std::unexpected{true};
+    }
+
+    advance();
+
+    int size = name_expr->end() - nonlocal_offset;
+    return std::make_unique<ASTNonlocalNameDeclNode>(std::move(name_expr),
+                                                     nonlocal_offset, size);
+}
+
+// This method parses type expressions in Chocopy. Type expressions can either
+// conist of a typename, or a type expression wrapped in square brackets to
+// signify a list type.
+auto Parser::parse_chocopy_type_expr() -> ReturnType {
+    // All Type expressions must begin with either a name or a '[' for a list
+    // type.
+    if (expect(TokenKind::Identifier)) {
+        // If we get an identifier, this is the type expression.
+        size_t offset = tok.offset;
+        int size = tok.size;
+
+        auto name_expr = std::make_unique<ASTNameExprNode>(offset, size);
+
+        // Now, we can consume the identifier and return the type expression
+        // node.
+        advance();
+
+        return std::make_unique<ASTTypeExprNode>(std::move(name_expr), false,
+                                                 offset, size);
+    }
+
+    if (expect(TokenKind::LeftSquare)) {
+        // After the left square, we need a nested typename.
+        size_t lsquare_offset = tok.offset;
+        advance();
+
+        size_t inner_type_start = tok.offset;
+        size_t inner_type_start_size = tok.size;
+
+        auto inner_type = parse_chocopy_type_expr();
+        if (!inner_type.has_value()) {
+            if (!inner_type.error())
+                report_parser_error(
+                    "expected type expression for list contents after '['.",
+                    inner_type_start, inner_type_start_size);
+
+            return std::unexpected{true};
+        }
+
+        // Now, we need a closing ']'.
+        if (!expect(TokenKind::RightSquare)) {
+            report_parser_error("expected ']' after typename for list contents "
+                                "within list type expression.",
+                                tok.offset, tok.size);
+
+            return std::unexpected{true};
+        }
+
+        int size = tok.offset - lsquare_offset;
+        advance();
+
+        return std::make_unique<ASTTypeExprNode>(std::move(inner_type.value()),
+                                                 true, lsquare_offset, size);
+    }
+
+    // If we get here, it means that we do not have a valid type expression.
+    // We won't report errors here, as we don't have enough context.
+    return std::unexpected{false};
 }
 } // namespace chocopyc::Parse
